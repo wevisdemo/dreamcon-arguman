@@ -1,21 +1,47 @@
-version: '2'
 services:
   redis:
+    container_name: dreamcon-redis
+    hostname: dreamcon-redis
     image: redis
-  mongodb:
+  mongo:
+    container_name: dreamcon-mongo
+    hostname: dreamcon-mongo
     image: mongo:3.2.3
-    ports:
-      - "27017:27017"
-  db:
+    volumes:
+      - mongo:/data/db
+  postgres:
+    container_name: dreamcon-postgres
+    hostname: dreamcon-postgres
     image: postgres
-  web:
+    volumes:
+      - postgres:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: $POSTGRES_USER
+      POSTGRES_PASSWORD: $POSTGRES_PASSWORD
+      POSTGRES_DB: arguman
+    healthcheck:
+      interval: 10s
+      retries: 10
+      test: 'pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"'
+      timeout: 2s
+  arguman:
+    depends_on:
+      - redis
+      - mongo
+      - postgres
+    container_name: dreamcon-arguman
+    hostname: dreamcon-arguman
     build: .
     command: bash -c "python web/manage.py migrate && python web/manage.py runserver 0.0.0.0:8000"
     volumes:
       - .:/code
-    ports:
-      - "8000:8000"
-    links:
-      - db
-      - redis
-      - mongodb
+    privileged: true
+
+networks:
+  default:
+    name: server
+    external: true
+
+volumes:
+  postgres:
+  mongo:
